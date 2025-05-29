@@ -1900,6 +1900,28 @@ async def handle_metrics(reader, writer):
         writer.close()
 
 
+async def config_watcher():
+    """Periodically check if config file has been modified and reload it if necessary"""
+    CONFIG_CHECK_PERIOD = 10  # Check every 10 seconds
+    
+    while True:
+        await asyncio.sleep(CONFIG_CHECK_PERIOD)
+        
+        try:
+            if hasattr(config, "check_config_changed") and config.check_config_changed():
+                print_err("Config file has been modified, reloading...")
+                
+                # Reload the config
+                init_config()
+                ensure_users_in_user_stats()
+                apply_upstream_proxy_settings()
+                
+                print_err("Config reloaded successfully")
+                print_tg_info()
+        except Exception as e:
+            print_err("Error checking/reloading config:", e)
+
+
 async def stats_printer():
     global user_stats
     global last_client_ips
@@ -2397,6 +2419,10 @@ def create_utilitary_tasks(loop):
 
     stats_printer_task = asyncio.Task(stats_printer(), loop=loop)
     tasks.append(stats_printer_task)
+    
+    # Add config watcher task to monitor for config file changes
+    config_watcher_task = asyncio.Task(config_watcher(), loop=loop)
+    tasks.append(config_watcher_task)
 
     if config.USE_MIDDLE_PROXY:
         middle_proxy_updater_task = asyncio.Task(update_middle_proxy_info(), loop=loop)
