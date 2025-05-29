@@ -1,12 +1,18 @@
 import os
+import json
 import time
 import threading
 
 PORT = 443
 
-# name -> secret (32 hex chars)
+# File to store user data
+USERS_FILE = "USERS.txt"
 
-USERS = {'tg': '00000000000000000000000000000001', 'autouser': '0e43c90aca5aef3ede5deb415553a993'}
+# Default users if file doesn't exist
+DEFAULT_USERS = {
+    'tg': '00000000000000000000000000000001',
+    'autouser': '0e43c90aca5aef3ede5deb415553a993',
+}
 
 MODES = {'classic': False, 'secure': False, 'tls': True}
 
@@ -16,6 +22,32 @@ PROMETHEUS_PORT = 9100
 
 # Prometheus scrapers whitelist for safety
 PROMETHEUS_SCRAPERS = []
+
+def load_users():
+    """Load users from file or create with defaults if not exists"""
+    try:
+        if os.path.exists(USERS_FILE):
+            with open(USERS_FILE, 'r') as f:
+                return json.load(f)
+        else:
+            # Create file with default users if it doesn't exist
+            with open(USERS_FILE, 'w') as f:
+                json.dump(DEFAULT_USERS, f, indent=4)
+            return DEFAULT_USERS.copy()
+    except Exception as e:
+        print(f"Error loading users: {e}")
+        return DEFAULT_USERS.copy()
+
+# Initialize users from file
+USERS = load_users()
+
+def save_users():
+    """Save users to file"""
+    try:
+        with open(USERS_FILE, 'w') as f:
+            json.dump(USERS, f, indent=4)
+    except Exception as e:
+        print(f"Error saving users: {e}")
 
 def is_valid_secret(secret):
     """Validate if secret is a valid 32 character hex string"""
@@ -38,7 +70,7 @@ def add_user(username, secret):
         raise ValueError("Secret must be a 32 character hex string")
         
     USERS[username] = secret
-    save_config()
+    save_users()
     
     return True
 
@@ -50,70 +82,39 @@ def remove_user(username):
         raise ValueError(f"User {username} not found")
     
     del USERS[username]
-    save_config()
+    save_users()
     
     return True
 
-def save_config():
-    """Save current configuration to file"""
-    import inspect
-    
-    # Get the current file content
-    with open(__file__, 'r') as f:
-        current_content = f.read()
-    
-    # Find where the actual code/functions start
-    code_start = current_content.find('def is_valid_secret')
-    if code_start == -1:
-        code_start = len(current_content)
-    
-    # Prepare the new config values
-    new_config = f"""import os
-import time
-import threading
-
-PORT = {PORT}
-
-# name -> secret (32 hex chars)
-USERS = {repr(USERS)}
-
-MODES = {repr(MODES)}
-
-"""
-    
-    # Combine config values with the existing functions
-    if code_start > 0:
-        new_content = new_config + current_content[code_start:]
-        with open(__file__, 'w') as f:
-            f.write(new_content)
-
 # Set up file monitoring for hot reload
-_last_modified = os.path.getmtime(__file__)
+_last_modified = os.path.getmtime(USERS_FILE) if os.path.exists(USERS_FILE) else 0
 
 def check_config_changed():
-    """Check if config file has been modified"""
+    """Check if users file has been modified"""
     global _last_modified
     try:
-        current_mtime = os.path.getmtime(__file__)
-        if current_mtime > _last_modified:
-            return True
+        if os.path.exists(USERS_FILE):
+            current_mtime = os.path.getmtime(USERS_FILE)
+            if current_mtime > _last_modified:
+                return True
     except Exception as e:
         print(f"Error checking config: {e}")
     return False
 
 def reload_config():
     """Reload the configuration from file"""
-    global PORT, USERS, MODES, _last_modified
+    global USERS, _last_modified
     
-    # Load new config
-    temp_module = {'__file__': __file__}
-    with open(__file__, 'r') as f:
-        exec(f.read(), temp_module)
-    
-    # Update all config variables
-    PORT = temp_module['PORT']
-    USERS = temp_module['USERS']
-    MODES = temp_module['MODES']
-    
-    # Update last modified time
-    _last_modified = os.path.getmtime(__file__)
+    try:
+        # Load users from file
+        new_users = load_users()
+        
+        # Update users
+        USERS.clear()
+        USERS.update(new_users)
+        
+        # Update last modified time
+        _last_modified = os.path.getmtime(USERS_FILE) if os.path.exists(USERS_FILE) else 0
+        
+    except Exception as e:
+        print(f"Error reloading config: {e}")
