@@ -36,6 +36,18 @@ The proxy comes with a command-line tool to easily manage users:
 ./manage_users.py remove username
 ```
 
+5. For Docker installation, use the following command formats:
+```bash
+# Add a user
+docker exec -u root -it mtprotoproxy /usr/bin/python3 manage_users.py add username
+
+# List all users
+docker exec -u root -it mtprotoproxy /usr/bin/python3 manage_users.py list
+
+# Remove a user
+docker exec -u root -it mtprotoproxy /usr/bin/python3 manage_users.py remove username
+```
+
 The changes are applied immediately thanks to the hot reload feature - no need to restart the proxy.
 
 ## Channel Advertising ##
