@@ -10,8 +10,14 @@ USERS_FILE = "USERS.txt"
 
 # Default users if file doesn't exist
 DEFAULT_USERS = {
-    'tg': '00000000000000000000000000000001',
-    'autouser': '0e43c90aca5aef3ede5deb415553a993',
+    'tg': {
+        'secret': '00000000000000000000000000000001',
+        'created_at': int(time.time())
+    },
+    'autouser': {
+        'secret': '0e43c90aca5aef3ede5deb415553a993',
+        'created_at': int(time.time())
+    }
 }
 
 MODES = {'classic': False, 'secure': False, 'tls': True}
@@ -60,7 +66,7 @@ def is_valid_secret(secret):
         return False
 
 def add_user(username, secret):
-    """Add a new user with their secret"""
+    """Add a new user with their secret and creation timestamp"""
     global USERS
     
     if not isinstance(username, str) or not username:
@@ -69,7 +75,10 @@ def add_user(username, secret):
     if not is_valid_secret(secret):
         raise ValueError("Secret must be a 32 character hex string")
         
-    USERS[username] = secret
+    USERS[username] = {
+        "secret": secret,
+        "created_at": int(time.time())
+    }
     save_users()
     
     return True
