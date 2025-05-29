@@ -180,6 +180,9 @@ def init_config():
     # we use conf_dict to protect the original config from exceptions when reloading
     if len(sys.argv) < 2:
         conf_dict = runpy.run_module("config")
+        # Attach config monitoring functions
+        conf_dict["check_config_changed"] = conf_dict.get("check_config_changed", lambda: False)
+        conf_dict["reload_config"] = conf_dict.get("reload_config", lambda: None)
     elif len(sys.argv) == 2:
         # launch with own config
         conf_dict = runpy.run_path(sys.argv[1])
@@ -1907,19 +1910,21 @@ async def config_watcher():
     while True:
         await asyncio.sleep(CONFIG_CHECK_PERIOD)
         
-        try:
-            if hasattr(config, "check_config_changed") and config.check_config_changed():
-                print_err("Config file has been modified, reloading...")
-                
-                # Reload the config
-                init_config()
-                ensure_users_in_user_stats()
-                apply_upstream_proxy_settings()
-                
-                print_err("Config reloaded successfully")
-                print_tg_info()
-        except Exception as e:
-            print_err("Error checking/reloading config:", e)
+        # Import config module to ensure we're using the latest version
+        import config as config_module
+        if config_module.check_config_changed():
+            print_err("Config file has been modified, reloading... Current users: %d" % len(config.USERS))
+            
+            # Call reload_config from the module
+            config_module.reload_config()
+            
+            # Then reinitialize everything
+            init_config()
+            ensure_users_in_user_stats()
+            apply_upstream_proxy_settings()
+            
+            print_err("Config reloaded successfully. New users count: %d" % len(config.USERS))
+            print_tg_info()
 
 
 async def stats_printer():
