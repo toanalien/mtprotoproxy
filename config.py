@@ -95,19 +95,25 @@ def check_config_changed():
     global _last_modified
     try:
         current_mtime = os.path.getmtime(__file__)
-        if current_mtime != _last_modified:
-            _last_modified = current_mtime
+        if current_mtime > _last_modified:
             return True
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error checking config: {e}")
     return False
 
 def reload_config():
-    """Reload the configuration"""
-    global PORT, USERS, MODES
-    temp_module = {}
+    """Reload the configuration from file"""
+    global PORT, USERS, MODES, _last_modified
+    
+    # Load new config
+    temp_module = {'__file__': __file__}
     with open(__file__, 'r') as f:
         exec(f.read(), temp_module)
+    
+    # Update all config variables
     PORT = temp_module['PORT']
     USERS = temp_module['USERS']
     MODES = temp_module['MODES']
+    
+    # Update last modified time
+    _last_modified = os.path.getmtime(__file__)

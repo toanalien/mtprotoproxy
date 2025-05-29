@@ -1910,21 +1910,29 @@ async def config_watcher():
     while True:
         await asyncio.sleep(CONFIG_CHECK_PERIOD)
         
-        # Import config module to ensure we're using the latest version
-        import config as config_module
-        if config_module.check_config_changed():
-            print_err("Config file has been modified, reloading... Current users: %d" % len(config.USERS))
-            
-            # Call reload_config from the module
-            config_module.reload_config()
-            
-            # Then reinitialize everything
-            init_config()
-            ensure_users_in_user_stats()
-            apply_upstream_proxy_settings()
-            
-            print_err("Config reloaded successfully. New users count: %d" % len(config.USERS))
-            print_tg_info()
+        try:
+            # Import config module to ensure we're using the latest version
+            import config as config_module
+            if config_module.check_config_changed():
+                print_err("Config file has been modified, reloading... Current users: %d" % len(config.USERS))
+                
+                # Call reload_config from the module first
+                config_module.reload_config()
+                
+                # Then reinitialize everything in the correct order
+                init_config()
+                ensure_users_in_user_stats()
+                apply_upstream_proxy_settings()
+                
+                # Clear any cached data
+                global used_handshakes, client_ips
+                used_handshakes.clear()
+                client_ips.clear()
+                
+                print_err("Config reloaded successfully. New users count: %d" % len(config.USERS))
+                print_tg_info()
+        except Exception as e:
+            print_err("Error during config reload:", e)
 
 
 async def stats_printer():
