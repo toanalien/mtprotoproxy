@@ -36,6 +36,8 @@ services:
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     
   grafana:
     image: grafana/grafana:latest
