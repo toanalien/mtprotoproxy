@@ -15,6 +15,43 @@ def print_usage():
     print("  List users:  ./manage_users.py list")
     print("\nNote: If secret is not provided, a random one will be generated")
 
+def get_proxy_url(username, secret):
+    """Generate proxy URL for a user"""
+    import socket
+    
+    # Try to get the server's public IP
+    try:
+        # First try to get IPv4 address
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("8.8.8.8", 80))
+            server_ip = s.getsockname()[0]
+    except:
+        try:
+            # If IPv4 fails, try to get hostname
+            server_ip = socket.gethostbyname(socket.gethostname())
+        except:
+            # If all fails, use localhost
+            server_ip = "127.0.0.1"
+    
+    # Get port from config
+    import config
+    port = getattr(config, "PORT", 443)
+    
+    # Check if TLS mode is enabled
+    modes = getattr(config, "MODES", {"tls": True})
+    tls_domain = getattr(config, "TLS_DOMAIN", "www.google.com")
+    
+    # Generate proxy URL
+    if modes.get("tls", False):
+        # For TLS mode, prefix secret with "ee" and append domain hex
+        tls_secret = "ee" + secret + tls_domain.encode().hex()
+        proxy_url = f"tg://proxy?server={server_ip}&port={port}&secret={tls_secret}"
+    else:
+        # Regular mode
+        proxy_url = f"tg://proxy?server={server_ip}&port={port}&secret={secret}"
+    
+    return proxy_url
+
 def main():
     if len(sys.argv) < 2:
         print_usage()
@@ -35,7 +72,9 @@ def main():
                 secret = generate_random_secret()
                 
             config.add_user(username, secret)
+            proxy_url = get_proxy_url(username, secret)
             print(f"User {username} added successfully with secret: {secret}")
+            print(f"{username}: {proxy_url}")
             
         elif command == "remove" and len(sys.argv) == 3:
             username = sys.argv[2]
@@ -45,7 +84,9 @@ def main():
         elif command == "list":
             print("Current users:")
             for username, secret in config.USERS.items():
+                proxy_url = get_proxy_url(username, secret)
                 print(f"{username}: {secret}")
+                print(f"{username}: {proxy_url}")
             
         else:
             print_usage()
