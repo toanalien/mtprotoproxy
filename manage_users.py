@@ -72,12 +72,11 @@ def main():
                 secret = generate_random_secret()
                 
             config.add_user(username, secret)
-            user_data = config.USERS[username]
-            secret = user_data["secret"] if isinstance(user_data, dict) else user_data
+            # Get user data from _users_data for metadata
             proxy_url = get_proxy_url(username, secret)
+            created_at = config._users_data[username]["created_at"]
             print(f"User {username} added successfully with secret: {secret}")
-            if isinstance(user_data, dict):
-                print(f"Created at: {user_data['created_at']}")
+            print(f"Created at: {created_at}")
             print(f"Proxy URL: {proxy_url}")
             
         elif command == "remove" and len(sys.argv) == 3:
@@ -87,17 +86,13 @@ def main():
             
         elif command == "list":
             print("Current users:")
-            for username, data in config.USERS.items():
-                secret = data["secret"] if isinstance(data, dict) else data
+            for username, data in config._users_data.items():
+                secret = data["secret"]
                 proxy_url = get_proxy_url(username, secret)
                 print(f"{username}:")
-                if isinstance(data, dict):
-                    print(f"  Secret: {secret}")
-                    print(f"  Created at: {data['created_at']}")
-                    print(f"  Proxy URL: {proxy_url}")
-                else:
-                    print(f"  Secret: {secret}")
-                    print(f"  Proxy URL: {proxy_url}")
+                print(f"  Secret: {secret}")
+                print(f"  Created at: {data['created_at']}")
+                print(f"  Proxy URL: {proxy_url}")
             
         else:
             print_usage()

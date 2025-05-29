@@ -44,14 +44,25 @@ def load_users():
         print(f"Error loading users: {e}")
         return DEFAULT_USERS.copy()
 
-# Initialize users from file
-USERS = load_users()
+# Initialize users from file with only the secrets for backward compatibility
+_users_data = load_users()
+USERS = {username: user_data["secret"] for username, user_data in _users_data.items()}
 
 def save_users():
-    """Save users to file"""
+    """Save users to file with metadata"""
     try:
+        _users_data = {}
+        for username, secret in USERS.items():
+            # Preserve existing timestamp if exists, otherwise create new
+            created_at = (_users_data.get(username, {}).get("created_at") 
+                         if os.path.exists(USERS_FILE) and username in _users_data 
+                         else int(time.time()))
+            _users_data[username] = {
+                "secret": secret,
+                "created_at": created_at
+            }
         with open(USERS_FILE, 'w') as f:
-            json.dump(USERS, f, indent=4)
+            json.dump(_users_data, f, indent=4)
     except Exception as e:
         print(f"Error saving users: {e}")
 
@@ -66,8 +77,8 @@ def is_valid_secret(secret):
         return False
 
 def add_user(username, secret):
-    """Add a new user with their secret and creation timestamp"""
-    global USERS
+    """Add a new user with their secret"""
+    global USERS, _users_data
     
     if not isinstance(username, str) or not username:
         raise ValueError("Username must be a non-empty string")
@@ -75,12 +86,16 @@ def add_user(username, secret):
     if not is_valid_secret(secret):
         raise ValueError("Secret must be a 32 character hex string")
         
-    USERS[username] = {
+    # Store secret in USERS for mtprotoproxy compatibility
+    USERS[username] = secret
+    
+    # Store full metadata in _users_data
+    _users_data[username] = {
         "secret": secret,
         "created_at": int(time.time())
     }
-    save_users()
     
+    save_users()
     return True
 
 def remove_user(username):
@@ -96,15 +111,16 @@ def remove_user(username):
     return True
 
 # Set up file monitoring for hot reload
-_last_modified = os.path.getmtime(USERS_FILE) if os.path.exists(USERS_FILE) else 0
+_users_file_last_modified = os.path.getmtime(USERS_FILE) if os.path.exists(USERS_FILE) else 0
 
 def check_config_changed():
     """Check if users file has been modified"""
-    global _last_modified
+    global _users_file_last_modified
     try:
         if os.path.exists(USERS_FILE):
             current_mtime = os.path.getmtime(USERS_FILE)
-            if current_mtime > _last_modified:
+            if current_mtime > _users_file_last_modified:
+                _users_file_last_modified = current_mtime
                 return True
     except Exception as e:
         print(f"Error checking config: {e}")
@@ -112,18 +128,16 @@ def check_config_changed():
 
 def reload_config():
     """Reload the configuration from file"""
-    global USERS, _last_modified
+    global USERS, _users_data
     
     try:
         # Load users from file
-        new_users = load_users()
+        _users_data = load_users()
         
-        # Update users
+        # Update USERS dict with just the secrets
         USERS.clear()
-        USERS.update(new_users)
-        
-        # Update last modified time
-        _last_modified = os.path.getmtime(USERS_FILE) if os.path.exists(USERS_FILE) else 0
+        USERS.update({username: user_data["secret"] 
+                     for username, user_data in _users_data.items()})
         
     except Exception as e:
         print(f"Error reloading config: {e}")
