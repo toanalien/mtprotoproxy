@@ -5,9 +5,17 @@ import threading
 PORT = 443
 
 # name -> secret (32 hex chars)
+
 USERS = {'tg': '00000000000000000000000000000001', 'autouser': '0e43c90aca5aef3ede5deb415553a993'}
 
 MODES = {'classic': False, 'secure': False, 'tls': True}
+
+# Prometheus exporter host and port for the dedicated endpoint
+PROMETHEUS_HOST = "0.0.0.0"
+PROMETHEUS_PORT = 9100
+
+# Prometheus scrapers whitelist for safety
+PROMETHEUS_SCRAPERS = ["127.0.0.1", "::1"]
 
 def is_valid_secret(secret):
     """Validate if secret is a valid 32 character hex string"""
