@@ -6,6 +6,7 @@ services:
   mtprotoproxy:
     build: .
     restart: unless-stopped
+    container_name: mtprotoproxy
     network_mode: "host"
     volumes:
       - ./config.py:/home/tgproxy/config.py
